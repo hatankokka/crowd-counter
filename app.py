@@ -1,6 +1,5 @@
 """
 空撮・集合写真 人数カウンター
-Streamlit版 - GitHub + Streamlit Cloud で無料公開
 """
 
 import streamlit as st
