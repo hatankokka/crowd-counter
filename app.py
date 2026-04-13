@@ -129,25 +129,25 @@ with tab_manual:
             st.markdown("**📌 座標を入力してマーク**")
             c1, c2 = st.columns(2)
             with c1:
-                px = st.number_input("X座標", min_value=0, max_value=w-1, value=w//2, step=1)
+                px = st.number_input("X座標", min_value=0, max_value=w-1, value=w//2, step=1, key="manual_px")
             with c2:
-                py = st.number_input("Y座標", min_value=0, max_value=h-1, value=h//2, step=1)
+                py = st.number_input("Y座標", min_value=0, max_value=h-1, value=h//2, step=1, key="manual_py")
 
             bc1, bc2, bc3 = st.columns(3)
             with bc1:
-                if st.button("➕ 追加", use_container_width=True, type="primary"):
+                if st.button("➕ 追加", use_container_width=True, type="primary", key="manual_add"):
                     st.session_state.history.append(st.session_state.points.copy())
                     if len(st.session_state.history) > 50:
                         st.session_state.history.pop(0)
                     st.session_state.points.append((int(px), int(py)))
                     st.rerun()
             with bc2:
-                if st.button("↩ 戻す", use_container_width=True):
+                if st.button("↩ 戻す", use_container_width=True, key="manual_undo"):
                     if st.session_state.history:
                         st.session_state.points = st.session_state.history.pop()
                     st.rerun()
             with bc3:
-                if st.button("🔄 リセット", use_container_width=True):
+                if st.button("🔄 リセット", use_container_width=True, key="manual_reset"):
                     st.session_state.points = []
                     st.session_state.auto_ids = set()
                     st.session_state.history = []
@@ -163,7 +163,7 @@ with tab_manual:
                 with dc2:
                     del_y = st.number_input("削除Y", min_value=0, max_value=h-1,
                                              value=st.session_state.points[-1][1], step=1, key="del_y")
-                if st.button("最も近い点を削除", use_container_width=True):
+                if st.button("最も近い点を削除", use_container_width=True, key="manual_del_nearest"):
                     pts = st.session_state.points
                     dists = [((p[0]-del_x)**2 + (p[1]-del_y)**2, i) for i, p in enumerate(pts)]
                     _, ni = min(dists)
@@ -189,6 +189,7 @@ with tab_manual:
                     file_name=f"crowd_manual_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.png",
                     mime="image/png",
                     use_container_width=True,
+                    key="dl_manual_img",
                 )
             with sc2:
                 json_data = json.dumps({
@@ -202,6 +203,7 @@ with tab_manual:
                     file_name=f"crowd_points_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
                     mime="application/json",
                     use_container_width=True,
+                    key="dl_manual_json",
                 )
     else:
         st.warning("👆 まず画像をアップロードしてください")
@@ -237,16 +239,17 @@ with tab_yolo:
 
     with col1:
         st.markdown("**検出設定**")
-        conf = st.slider("信頼度しきい値", 0.1, 0.8, 0.3, 0.05,
+        conf = st.slider("信頼度しきい値", 0.1, 0.8, 0.3, 0.05, key="yolo_conf",
                          help="低いほど検出数が増えるが誤検出も増える")
-        use_sahi = st.checkbox("🔍 高解像度モード（SAHI）",
+        use_sahi = st.checkbox("🔍 高解像度モード（SAHI）", key="yolo_sahi",
                                help="空撮など大きい画像向け。処理が重くなる")
         model_size = st.selectbox("モデルサイズ",
                                    ["yolov8n", "yolov8s", "yolov8m"],
                                    index=0,
-                                   help="n=軽量 / s=バランス / m=高精度")
+                                   help="n=軽量 / s=バランス / m=高精度",
+                                   key="yolo_model")
 
-        if st.button("🤖 自動検出を実行", type="primary", use_container_width=True):
+        if st.button("🤖 自動検出を実行", type="primary", use_container_width=True, key="yolo_detect"):
             with st.spinner("検出中..."):
                 try:
                     model = _YOLO(f"{model_size}.pt")
@@ -310,7 +313,7 @@ with tab_yolo:
             add_x = st.number_input("追加X", 0, w-1, w//2, key="add_x")
         with c2:
             add_y = st.number_input("追加Y", 0, h-1, h//2, key="add_y")
-        if st.button("➕ 手動追加"):
+        if st.button("➕ 手動追加", key="yolo_add"):
             st.session_state.history.append(
                 (st.session_state.points.copy(), st.session_state.auto_ids.copy()))
             st.session_state.points.append((int(add_x), int(add_y)))
@@ -318,14 +321,14 @@ with tab_yolo:
 
         bc1, bc2 = st.columns(2)
         with bc1:
-            if st.button("↩ 戻す", use_container_width=True):
+            if st.button("↩ 戻す", use_container_width=True, key="yolo_undo"):
                 if st.session_state.history:
                     h_pts, h_ids = st.session_state.history.pop()
                     st.session_state.points = h_pts
                     st.session_state.auto_ids = h_ids
                 st.rerun()
         with bc2:
-            if st.button("🔄 リセット", use_container_width=True):
+            if st.button("🔄 リセット", use_container_width=True, key="yolo_reset"):
                 st.session_state.points = []
                 st.session_state.auto_ids = set()
                 st.session_state.history = []
@@ -346,6 +349,7 @@ with tab_yolo:
                 file_name=f"crowd_yolo_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.png",
                 mime="image/png",
                 use_container_width=True,
+                key="dl_yolo_img",
             )
 
 
@@ -589,14 +593,14 @@ with tab_csrnet:
     # ── UI ──
     col1, col2 = st.columns([1, 2])
     with col1:
-        cell_px  = st.slider("分析セルサイズ (px)", 16, 64, 28, 4,
+        cell_px  = st.slider("分析セルサイズ (px)", 16, 64, 28, 4, key="csrnet_cell",
                               help="小さいほど細かく分析。大きいほど高速")
-        alpha    = st.slider("ヒートマップ透明度", 0.2, 0.9, 0.55, 0.05)
+        alpha    = st.slider("ヒートマップ透明度", 0.2, 0.9, 0.55, 0.05, key="csrnet_alpha")
         if weights_loaded:
-            use_tile  = st.checkbox("CSRNet タイル分割", value=True)
-            tile_size = st.slider("タイルサイズ", 256, 1024, 512, 128,
+            use_tile  = st.checkbox("CSRNet タイル分割", value=True, key="csrnet_tile")
+            tile_size = st.slider("タイルサイズ", 256, 1024, 512, 128, key="csrnet_tilesize",
                                    disabled=not use_tile)
-        run = st.button("🔍 全手法で推定を実行", type="primary", use_container_width=True)
+        run = st.button("🔍 全手法で推定を実行", type="primary", use_container_width=True, key="csrnet_run")
 
     # ── CSRNet推論関数 ──
     if torch_available and weights_loaded:
