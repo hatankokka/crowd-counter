@@ -60,7 +60,7 @@ streamlit run app.py
 アプリ起動時に自動ダウンロードを試みます。  
 失敗した場合は以下の手順で手動ダウンロードしてください。
 
-1. [CSRNet-pytorch](https://github.com/CommissarMa/CSRNet-pytorch) を開く
+1. [CommissarMa/CSRNet-pytorch](https://github.com/CommissarMa/CSRNet-pytorch) を開く
 2. README のリンクから Google Drive にアクセス
 3. `csrnet_partA.pth` という名前で `app.py` と同じフォルダに保存
 4. アプリを再起動
@@ -77,9 +77,28 @@ streamlit run app.py
 
 ---
 
-## 技術スタック
+## 使用しているOSS・論文
 
-- [Streamlit](https://streamlit.io)
-- [YOLOv8](https://github.com/ultralytics/ultralytics) + [SAHI](https://github.com/obss/sahi)
-- [CSRNet](https://github.com/CommissarMa/CSRNet-pytorch)（Li et al., CVPR 2018）
-- OpenCV / PyTorch / Pillow
+### 🤖 YOLO自動検出
+- **Ultralytics YOLOv8**  
+  https://github.com/ultralytics/ultralytics  
+  License: AGPL-3.0
+
+- **SAHI** (Slicing Aided Hyper Inference)  
+  高解像度画像の分割推論に使用  
+  https://github.com/obss/sahi  
+  License: MIT
+
+### 🌡️ CSRNet密度推定
+- **CSRNet 論文**  
+  Li et al., "CSRNet: Dilated Convolutional Neural Networks for Understanding the Highly Congested Scenes", CVPR 2018  
+  https://github.com/leeyeehoo/CSRNet-pytorch
+
+- **CSRNet 実装（学習済み重み配布元）**  
+  https://github.com/CommissarMa/CSRNet-pytorch
+
+### その他
+- [Streamlit](https://streamlit.io) — Web UIフレームワーク
+- [OpenCV](https://opencv.org) — 画像処理
+- [PyTorch](https://pytorch.org) / [torchvision](https://github.com/pytorch/vision) — 深層学習
+- [Pillow](https://pillow.readthedocs.io) — 画像操作
