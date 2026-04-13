@@ -1,5 +1,6 @@
 """
 空撮・集合写真 人数カウンター
+Streamlit版 - GitHub + Streamlit Cloud で無料公開
 """
 
 import streamlit as st
@@ -406,6 +407,8 @@ elif mode == "🌡️ CSRNet密度推定":
     # ── CSRNet定義（キャッシュ）──
     @st.cache_resource(show_spinner="CSRNetを初期化中...")
     def get_csrnet():
+        import os
+
         def make_layers(cfg, in_channels=3, dilation=False):
             d = 2 if dilation else 1
             layers = []
@@ -435,14 +438,60 @@ elif mode == "🌡️ CSRNet密度推定":
             def forward(self, x):
                 return self.output(self.backend(self.frontend(x)))
 
+        # ── 重みファイルの自動ダウンロード ──
+        WEIGHTS = "csrnet_partA.pth"
+
+        def is_valid_weights(path):
+            return os.path.exists(path) and os.path.getsize(path) > 1_000_000
+
+        def try_download():
+            # 試行1: gdown (Google Drive)
+            # CommissarMa/CSRNet-pytorch で配布されている PartA 学習済み重み
+            try:
+                import gdown
+                gdrive_ids = [
+                    "1nnIHPaV9RGqK8JHL645zmRvkNrahD9ru",
+                    "190bB3q3R7o-PEe7MbxHiNqf7M_bsEBEt",
+                ]
+                for gid in gdrive_ids:
+                    try:
+                        gdown.download(
+                            f"https://drive.google.com/uc?id={gid}",
+                            WEIGHTS, quiet=True
+                        )
+                        if is_valid_weights(WEIGHTS):
+                            return True
+                    except Exception:
+                        continue
+            except ImportError:
+                pass
+
+            # 試行2: HuggingFace Hub
+            try:
+                from huggingface_hub import hf_hub_download
+                import shutil
+                path = hf_hub_download(
+                    repo_id="nickmuchi/csrnet-crowd-counting",
+                    filename="csrnet_partA.pth",
+                )
+                shutil.copy(path, WEIGHTS)
+                if is_valid_weights(WEIGHTS):
+                    return True
+            except Exception:
+                pass
+
+            return False
+
+        if not is_valid_weights(WEIGHTS):
+            try_download()
+
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model = CSRNet().to(device).eval()
 
-        # 重みファイルの読み込みを試みる
         weights_loaded = False
-        if os.path.exists("csrnet_partA.pth"):
+        if is_valid_weights(WEIGHTS):
             try:
-                ckpt = torch.load("csrnet_partA.pth", map_location=device)
+                ckpt = torch.load(WEIGHTS, map_location=device)
                 if isinstance(ckpt, dict):
                     ckpt = ckpt.get("state_dict", ckpt.get("model", ckpt))
                 model.load_state_dict(ckpt, strict=False)
@@ -457,12 +506,16 @@ elif mode == "🌡️ CSRNet密度推定":
 
     if not weights_loaded:
         st.warning(
-            "⚠️ 学習済み重みが見つかりません。VGG16 frontendのみのフォールバックモードで動作します。\n\n"
-            "精度を上げるには `csrnet_partA.pth` をアプリと同じフォルダに置いてください。\n"
-            "→ https://github.com/CommissarMa/CSRNet-pytorch"
+            "⚠️ 学習済み重みの自動ダウンロードに失敗しました。"
+            "VGG16 frontendのみのフォールバックモードで動作します（精度は低め）。\n\n"
+            "**手動ダウンロード手順:**\n"
+            "1. https://github.com/CommissarMa/CSRNet-pytorch を開く\n"
+            "2. READMEのGoogle DriveリンクからPartAの重みをダウンロード\n"
+            "3. `csrnet_partA.pth` という名前で `app.py` と同じフォルダに保存\n"
+            "4. アプリを再起動"
         )
     else:
-        st.success("✅ 学習済み重みを読み込みました")
+        st.success("✅ 学習済み重みを読み込みました（高精度モード）")
 
     # 設定
     col1, col2 = st.columns([1, 2])
