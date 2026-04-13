@@ -383,6 +383,27 @@ elif mode == "🌡️ CSRNet密度推定":
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
     import matplotlib.cm as cm
+    import matplotlib.font_manager as fm
+
+    # Noto Sans CJK JP（packages.txtでインストール済み）を使用
+    # なければシステムのCJKフォントを探してフォールバック
+    def _set_jp_font():
+        candidates = [
+            "Noto Sans CJK JP",
+            "Noto Sans JP",
+            "IPAexGothic",
+            "IPAGothic",
+            "TakaoPGothic",
+        ]
+        available = {f.name for f in fm.fontManager.ttflist}
+        for name in candidates:
+            if name in available:
+                matplotlib.rcParams["font.family"] = name
+                return
+        # フォントが見つからなければ豆腐を避けるため英語表示に切り替えるフラグ
+        matplotlib.rcParams["axes.unicode_minus"] = False
+
+    _set_jp_font()
 
     try:
         import torch
@@ -633,24 +654,24 @@ elif mode == "🌡️ CSRNet密度推定":
 
         with st.spinner("手法1: エッジ密度法..."):
             d1, c1 = method_edge(img_bytes, cell_px=int(cell_px))
-            results["①エッジ密度法"] = (d1, c1,
+            results["edge"] = (d1, c1, "①エッジ密度法",
                 "Cannyエッジの密度から推定。人体輪郭が密集するほど高くなる。")
 
         with st.spinner("手法2: 局所分散法..."):
             d2, c2 = method_variance(img_bytes, cell_px=int(cell_px))
-            results["②局所分散法"] = (d2, c2,
+            results["variance"] = (d2, c2, "②局所分散法",
                 "輝度の局所分散から推定。人・服が混在するほど分散が高くなる。")
 
         with st.spinner("手法3: HSV彩度法..."):
             d3, c3 = method_hsv(img_bytes, cell_px=int(cell_px))
-            results["③HSV彩度法"] = (d3, c3,
+            results["hsv"] = (d3, c3, "③HSV彩度法",
                 "服の色彩分散から推定。多様な服色が混在するほどスコアが高くなる。")
 
         if torch_available and weights_loaded:
             with st.spinner("手法4: CSRNet（学習済みモデル）..."):
                 d4 = csr_tile(orig_pil, ts=int(tile_size)) if use_tile else csr_infer(orig_pil)
                 c4 = int(d4.sum())
-                results["④CSRNet"] = (d4, c4,
+                results["csrnet"] = (d4, c4, "④CSRNet",
                     "ShanghaiTechデータで学習済みの深層学習モデル。高密度群衆に特化。")
 
         counts = [v[1] for v in results.values()]
@@ -668,10 +689,10 @@ elif mode == "🌡️ CSRNet密度推定":
             axes[0].imshow(np.array(orig_pil))
             axes[0].set_title("元画像", color="white", fontsize=11)
             axes[0].axis("off")
-            for ax, (name, (d, c, _)) in zip(axes[1:], results.items()):
+            for ax, (name, (d, c, label, _)) in zip(axes[1:], results.items()):
                 overlay = make_overlay(orig_pil, d, a=float(alpha))
                 ax.imshow(np.array(overlay))
-                ax.set_title(f"{name}\n推定: {c:,}人", color="white", fontsize=10)
+                ax.set_title(f"{label}\n推定: {c:,}人", color="white", fontsize=10)
                 ax.axis("off")
             plt.tight_layout()
             st.image(fig_to_pil(fig), use_container_width=True)
@@ -698,9 +719,9 @@ elif mode == "🌡️ CSRNet密度推定":
 
         # 各手法の個別結果
         cols_r = st.columns(len(results))
-        for col_r, (name, (_, count, desc)) in zip(cols_r, results.items()):
+        for col_r, (name, (_, count, label, desc)) in zip(cols_r, results.items()):
             with col_r:
-                st.metric(name, f"{count:,} 人")
+                st.metric(label, f"{count:,} 人")
                 st.caption(desc)
 
         st.divider()
