@@ -385,25 +385,34 @@ elif mode == "🌡️ CSRNet密度推定":
     import matplotlib.cm as cm
     import matplotlib.font_manager as fm
 
-    # Noto Sans CJK JP（packages.txtでインストール済み）を使用
-    # なければシステムのCJKフォントを探してフォールバック
-    def _set_jp_font():
-        candidates = [
-            "Noto Sans CJK JP",
-            "Noto Sans JP",
-            "IPAexGothic",
-            "IPAGothic",
-            "TakaoPGothic",
+    # 日本語フォントをファイルパスから直接ロード（キャッシュ不要で確実）
+    @st.cache_resource
+    def _get_jp_font_prop():
+        import glob
+        search_paths = [
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/opentype/noto/NotoSansCJKjp-Regular.otf",
+            "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/opentype/ipafont-gothic/ipagp.ttf",
+            "/usr/share/fonts/truetype/fonts-japanese-gothic.ttf",
         ]
-        available = {f.name for f in fm.fontManager.ttflist}
-        for name in candidates:
-            if name in available:
-                matplotlib.rcParams["font.family"] = name
-                return
-        # フォントが見つからなければ豆腐を避けるため英語表示に切り替えるフラグ
-        matplotlib.rcParams["axes.unicode_minus"] = False
+        search_paths += glob.glob("/usr/share/fonts/**/*CJK*.tt[cf]", recursive=True)
+        search_paths += glob.glob("/usr/share/fonts/**/*noto*jp*.tt[cf]", recursive=True)
+        search_paths += glob.glob("/usr/share/fonts/**/*Noto*CJK*.tt[cf]", recursive=True)
+        for path in search_paths:
+            if os.path.exists(path):
+                try:
+                    return fm.FontProperties(fname=path)
+                except Exception:
+                    continue
+        return None
 
-    _set_jp_font()
+    _JP_FONT = _get_jp_font_prop()
+
+    def _title(ax, text, **kwargs):
+        if _JP_FONT:
+            kwargs["fontproperties"] = _JP_FONT
+        ax.set_title(text, **kwargs)
 
     try:
         import torch
@@ -687,15 +696,16 @@ elif mode == "🌡️ CSRNet密度推定":
             fig, axes = plt.subplots(1, n+1, figsize=(5*(n+1), 5))
             fig.patch.set_facecolor("#111")
             axes[0].imshow(np.array(orig_pil))
-            axes[0].set_title("元画像", color="white", fontsize=11)
+            _title(axes[0], "元画像", color="white", fontsize=11)
             axes[0].axis("off")
             for ax, (name, (d, c, label, _)) in zip(axes[1:], results.items()):
                 overlay = make_overlay(orig_pil, d, a=float(alpha))
                 ax.imshow(np.array(overlay))
-                ax.set_title(f"{label}\n推定: {c:,}人", color="white", fontsize=10)
+                _title(ax, f"{label}\n推定: {c:,}人", color="white", fontsize=10)
                 ax.axis("off")
             plt.tight_layout()
-            st.image(fig_to_pil(fig), use_container_width=True)
+            _compare_fig_pil = fig_to_pil(fig)
+            st.image(_compare_fig_pil, use_container_width=True)
 
         # ── 推定サマリー ──
         st.divider()
@@ -737,12 +747,23 @@ elif mode == "🌡️ CSRNet密度推定":
         ts_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         best_density = list(results.values())[0][0]
         best_overlay = make_overlay(orig_pil, best_density, a=float(alpha))
-        st.download_button(
-            "💾 ヒートマップ画像をダウンロード",
-            data=pil_to_bytes(best_overlay),
-            file_name=f"crowd_heatmap_{ts_str}.png",
-            mime="image/png",
-        )
+        dl1, dl2 = st.columns(2)
+        with dl1:
+            st.download_button(
+                "💾 ヒートマップ画像をダウンロード",
+                data=pil_to_bytes(best_overlay),
+                file_name=f"crowd_heatmap_{ts_str}.png",
+                mime="image/png",
+                use_container_width=True,
+            )
+        with dl2:
+            st.download_button(
+                "📊 比較図をダウンロード",
+                data=pil_to_bytes(_compare_fig_pil),
+                file_name=f"crowd_compare_{ts_str}.png",
+                mime="image/png",
+                use_container_width=True,
+            )
 
     else:
         with col2:
