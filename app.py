@@ -20,8 +20,7 @@ st.set_page_config(
     layout="wide",
 )
 
-st.title("🧑‍🤝‍🧑 空撮・集合写真 人数カウンター")
-st.caption("手動クリック / YOLO自動検出 / CSRNet密度推定 の3モードに対応")
+st.title("🧑‍🤝‍🧑 群衆カウンター")
 
 # ─────────────────────────────────────────
 # 共通ユーティリティ
@@ -83,46 +82,25 @@ for k, v in defaults.items():
 
 
 # ─────────────────────────────────────────
-# サイドバー: モード選択 & 共通設定
+# タブでモード選択（モバイル対応）
 # ─────────────────────────────────────────
-with st.sidebar:
-    st.header("⚙️ 設定")
-    mode = st.radio(
-        "推定モード",
-        ["✋ 手動クリック", "🤖 YOLO自動検出", "🌡️ CSRNet密度推定"],
-        help=(
-            "手動: 確実・低密度向け\n"
-            "YOLO: 自動・中密度向け\n"
-            "CSRNet: 高密度・空撮向け"
-        ),
-    )
-    st.divider()
-    st.markdown("""
-    **使い方**
-    1. 画像をアップロード
-    2. モードを選択
-    3. 結果を確認・保存
-    
-    **モード選択の目安**
-    | 密度 | おすすめ |
-    |------|---------|
-    | 低（識別可能） | YOLO |
-    | 中 | YOLO + SAHI |
-    | 高（空撮デモ） | CSRNet |
-    | 正確に確認 | 手動 |
-    """)
+tab_manual, tab_yolo, tab_csrnet = st.tabs([
+    "✋ 手動クリック",
+    "🤖 YOLO自動検出",
+    "🌡️ CSRNet密度推定",
+])
 
 
 # ─────────────────────────────────────────
-# 画像アップロード
+# 画像アップロード（タブ共通）
 # ─────────────────────────────────────────
 uploaded = st.file_uploader(
     "📂 画像をアップロード（JPG / PNG / WEBP）",
     type=["jpg", "jpeg", "png", "webp"],
+    label_visibility="collapsed",
 )
 
 if uploaded is not None:
-    # 新しい画像がアップロードされたらリセット
     if uploaded.name != st.session_state.last_uploaded_name:
         img_pil = Image.open(uploaded).convert("RGB")
         st.session_state.original_bgr = pil_to_bgr(img_pil)
@@ -133,9 +111,9 @@ if uploaded is not None:
         st.success(f"✅ 読み込み完了: {uploaded.name}  ({img_pil.width}×{img_pil.height}px)")
 
 # ─────────────────────────────────────────
-# モード A: 手動クリック
+# タブ A: 手動クリック
 # ─────────────────────────────────────────
-if mode == "✋ 手動クリック":
+with tab_manual:
     st.subheader("✋ 手動クリックモード")
     st.info("画像の上でクリックした座標を入力して人をマークします。"
             "Streamlit上での直接クリックマーキングは制限があるため、"
@@ -230,9 +208,9 @@ if mode == "✋ 手動クリック":
 
 
 # ─────────────────────────────────────────
-# モード B: YOLO自動検出
+# タブ B: YOLO自動検出
 # ─────────────────────────────────────────
-elif mode == "🤖 YOLO自動検出":
+with tab_yolo:
     st.subheader("🤖 YOLO自動検出モード")
     st.caption("🔵 青丸 = YOLO自動検出　🟢 緑丸 = 手動追加")
 
@@ -372,9 +350,9 @@ elif mode == "🤖 YOLO自動検出":
 
 
 # ─────────────────────────────────────────
-# モード C: CSRNet密度推定 + 複数手法比較
+# タブ C: CSRNet密度推定 + 複数手法比較
 # ─────────────────────────────────────────
-elif mode == "🌡️ CSRNet密度推定":
+with tab_csrnet:
     st.subheader("🌡️ 群衆密度推定（複数手法）")
     st.caption("高密度・空撮デモ写真向け | 複数の独立した手法で推定し、信頼範囲を表示")
 
