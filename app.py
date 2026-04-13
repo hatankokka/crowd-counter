@@ -425,12 +425,11 @@ elif mode == "🌡️ CSRNet密度推定":
         plt.setp(cbar.ax.yaxis.get_ticklabels(), color='white')
         for ax in axes: ax.axis('off')
         plt.tight_layout()
-        fig.canvas.draw()
-        buf = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-        bw, bh = fig.canvas.get_width_height()
-        buf = buf.reshape(bh, bw, 3)
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', bbox_inches='tight', facecolor=fig.get_facecolor())
+        buf.seek(0)
         plt.close(fig)
-        return Image.fromarray(buf)
+        return Image.open(buf).copy()  # .copy() でbufクローズ後も安全
 
     # ─────────────────────────────────────
     # フォールバック: テクスチャ密度推定
