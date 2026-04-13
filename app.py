@@ -84,8 +84,7 @@ for k, v in defaults.items():
 # ─────────────────────────────────────────
 # タブでモード選択（モバイル対応）
 # ─────────────────────────────────────────
-tab_manual, tab_yolo, tab_csrnet = st.tabs([
-    "✋ 手動クリック",
+tab_yolo, tab_csrnet = st.tabs([
     "🤖 YOLO自動検出",
     "🌡️ CSRNet密度推定",
 ])
@@ -111,110 +110,21 @@ if uploaded is not None:
         st.success(f"✅ 読み込み完了: {uploaded.name}  ({img_pil.width}×{img_pil.height}px)")
 
 # ─────────────────────────────────────────
-# タブ A: 手動クリック
-# ─────────────────────────────────────────
-with tab_manual:
-    st.subheader("✋ 手動クリックモード")
-    st.info("画像の上でクリックした座標を入力して人をマークします。"
-            "Streamlit上での直接クリックマーキングは制限があるため、"
-            "座標を直接指定する方式を採用しています。")
-
-    if st.session_state.original_bgr is not None:
-        orig = st.session_state.original_bgr
-        h, w = orig.shape[:2]
-
-        col1, col2 = st.columns([1, 1])
-
-        with col1:
-            st.markdown("**📌 座標を入力してマーク**")
-            c1, c2 = st.columns(2)
-            with c1:
-                px = st.number_input("X座標", min_value=0, max_value=w-1, value=w//2, step=1, key="manual_px")
-            with c2:
-                py = st.number_input("Y座標", min_value=0, max_value=h-1, value=h//2, step=1, key="manual_py")
-
-            bc1, bc2, bc3 = st.columns(3)
-            with bc1:
-                if st.button("➕ 追加", use_container_width=True, type="primary", key="manual_add"):
-                    st.session_state.history.append(st.session_state.points.copy())
-                    if len(st.session_state.history) > 50:
-                        st.session_state.history.pop(0)
-                    st.session_state.points.append((int(px), int(py)))
-                    st.rerun()
-            with bc2:
-                if st.button("↩ 戻す", use_container_width=True, key="manual_undo"):
-                    if st.session_state.history:
-                        st.session_state.points = st.session_state.history.pop()
-                    st.rerun()
-            with bc3:
-                if st.button("🔄 リセット", use_container_width=True, key="manual_reset"):
-                    st.session_state.points = []
-                    st.session_state.auto_ids = set()
-                    st.session_state.history = []
-                    st.rerun()
-
-            # 直近の点を削除
-            if st.session_state.points:
-                st.markdown("**🗑 近くの点を削除**")
-                dc1, dc2 = st.columns(2)
-                with dc1:
-                    del_x = st.number_input("削除X", min_value=0, max_value=w-1,
-                                             value=st.session_state.points[-1][0], step=1, key="del_x")
-                with dc2:
-                    del_y = st.number_input("削除Y", min_value=0, max_value=h-1,
-                                             value=st.session_state.points[-1][1], step=1, key="del_y")
-                if st.button("最も近い点を削除", use_container_width=True, key="manual_del_nearest"):
-                    pts = st.session_state.points
-                    dists = [((p[0]-del_x)**2 + (p[1]-del_y)**2, i) for i, p in enumerate(pts)]
-                    _, ni = min(dists)
-                    st.session_state.history.append(pts.copy())
-                    st.session_state.points.pop(ni)
-                    st.rerun()
-
-            st.metric("現在の人数", len(st.session_state.points))
-
-        with col2:
-            result = draw_points(orig, st.session_state.points, st.session_state.auto_ids)
-            st.image(bgr_to_pil(result), use_container_width=True, caption="マーク済み画像")
-
-        # 保存
-        if st.session_state.points:
-            st.divider()
-            sc1, sc2 = st.columns(2)
-            result_pil = bgr_to_pil(draw_points(orig, st.session_state.points))
-            with sc1:
-                st.download_button(
-                    "💾 マーク済み画像をダウンロード",
-                    data=pil_to_bytes(result_pil),
-                    file_name=f"crowd_manual_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.png",
-                    mime="image/png",
-                    use_container_width=True,
-                    key="dl_manual_img",
-                )
-            with sc2:
-                json_data = json.dumps({
-                    "count": len(st.session_state.points),
-                    "points": [{"id": i+1, "x": x, "y": y}
-                               for i, (x, y) in enumerate(st.session_state.points)]
-                }, indent=2)
-                st.download_button(
-                    "📋 座標データ (JSON) をダウンロード",
-                    data=json_data,
-                    file_name=f"crowd_points_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
-                    mime="application/json",
-                    use_container_width=True,
-                    key="dl_manual_json",
-                )
-    else:
-        st.warning("👆 まず画像をアップロードしてください")
-
-
-# ─────────────────────────────────────────
 # タブ B: YOLO自動検出
 # ─────────────────────────────────────────
 with tab_yolo:
-    st.subheader("🤖 YOLO自動検出モード")
-    st.caption("🔵 青丸 = YOLO自動検出　🟢 緑丸 = 手動追加")
+    st.subheader("🤖 YOLO自動検出")
+    st.info("""
+**こんなときに使ってください 👇**
+
+✅ 写真の中で**一人ひとりの姿がはっきり見える**とき（顔や体が識別できる）
+✅ 人と人の間に多少隙間があるとき
+✅ 運動会・卒業式・小規模なイベントの写真など
+
+❌ 人が密集しすぎて個人を識別できない写真には向いていません
+　→ その場合は「🌡️ CSRNet密度推定」タブを使ってください
+""")
+    st.caption("🔵 青丸 = AIが自動で検出した人　🟢 緑丸 = 手動で追加した人")
 
     # YOLOのインポートを試みる
     try:
@@ -357,8 +267,20 @@ with tab_yolo:
 # タブ C: CSRNet密度推定 + 複数手法比較
 # ─────────────────────────────────────────
 with tab_csrnet:
-    st.subheader("🌡️ 群衆密度推定（複数手法）")
-    st.caption("高密度・空撮デモ写真向け | 複数の独立した手法で推定し、信頼範囲を表示")
+    st.subheader("🌡️ CSRNet密度推定")
+    st.info("""
+**こんなときに使ってください 👇**
+
+✅ デモ行進・お祭り・花火大会など**人が密集した**写真
+✅ 空から撮った写真（空撮・ドローン映像）
+✅ 人の顔や体がよく見えないくらい密集しているとき
+✅ 数百〜数万人規模の群衆を推定したいとき
+
+❌ 人が少なく、一人ひとりはっきり見える写真には向いていません
+　→ その場合は「🤖 YOLO自動検出」タブを使ってください
+
+📊 **複数の異なるアルゴリズムで同時に推定し、推定範囲を表示します**
+""")
 
     import os
     import matplotlib
